@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Sanders Family Secret Santa 🎅</title>
+<meta property="og:title" content="Sanders Family Secret Santa 🎅">
+<meta property="og:description" content="Tap to spin the wheel and draw your name!">
+<style>
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;background:radial-gradient(circle at 50% 0,#1f6b45 0,#0d3b26 60%,#08261a 100%);color:#fff;min-height:100vh;text-align:center;padding:16px 14px 40px}
+h1{font-size:26px;margin:6px 0 2px;letter-spacing:.5px}
+h1 span{color:#ffd65a}
+.sub{opacity:.85;font-size:15px;margin:0 0 14px}
+.banner{background:linear-gradient(#ffd65a,#f4b400);color:#5a2d00;border-radius:16px;padding:10px 14px;margin:6px auto 4px;max-width:440px;font-size:17px;box-shadow:0 3px 0 #b07c00}
+.banner span{font-size:13px;opacity:.85}
+.card{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);border-radius:18px;padding:14px;margin:12px auto;max-width:440px}
+.card h2{font-size:17px;margin:0 0 10px;font-weight:600}
+.who{display:flex;flex-wrap:wrap;gap:10px;justify-content:center}
+button{font:inherit;border:0;border-radius:14px;cursor:pointer;-webkit-tap-highlight-color:transparent}
+.who button{background:#fff;color:#0d3b26;font-weight:700;font-size:18px;padding:12px 18px;min-width:110px;box-shadow:0 3px 0 #b9c9bf}
+.who button:active{transform:translateY(2px);box-shadow:0 1px 0 #b9c9bf}
+.wheelwrap{position:relative;width:min(88vw,380px);height:min(88vw,380px);margin:8px auto 4px}
+canvas{width:100%;height:100%;display:block}
+.pointer{position:absolute;left:50%;top:-6px;transform:translateX(-50%);width:0;height:0;border-left:18px solid transparent;border-right:18px solid transparent;border-top:34px solid #ffd65a;filter:drop-shadow(0 3px 2px rgba(0,0,0,.5));z-index:2}
+.spin{background:linear-gradient(#e63946,#b5161f);color:#fff;font-size:22px;font-weight:800;padding:14px 44px;margin-top:12px;box-shadow:0 4px 0 #7a0d13;letter-spacing:1px}
+.spin:disabled{opacity:.55}
+.spin:active:not(:disabled){transform:translateY(2px);box-shadow:0 2px 0 #7a0d13}
+.result{font-size:28px;font-weight:800;margin:10px 0 4px;color:#ffd65a;text-shadow:0 2px 6px rgba(0,0,0,.4)}
+.share{background:#34c759;color:#fff;font-size:19px;font-weight:700;padding:14px 26px;margin:8px 0 4px;box-shadow:0 4px 0 #1f7a37}
+.hint{font-size:13px;opacity:.75;margin:6px 0 0}
+ul.list{list-style:none;padding:0;margin:0;text-align:left;display:inline-block}
+ul.list li{font-size:17px;padding:5px 2px;border-bottom:1px dashed rgba(255,255,255,.18)}
+ul.list li:last-child{border-bottom:0}
+ul.list b{color:#ffd65a}
+.muted{opacity:.7;font-size:14px}
+a{color:#ffd65a}
+.reset{font-size:13px;opacity:.7;margin-top:22px;display:inline-block}
+.hidden{display:none!important}
+.snow{position:fixed;inset:0;pointer-events:none;z-index:0}
+main{position:relative;z-index:1}
+#toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:#fff;color:#0d3b26;padding:10px 16px;border-radius:12px;font-weight:600;opacity:0;transition:opacity .3s;z-index:5}
+</style>
+</head>
+<body>
+<canvas class="snow" id="snow"></canvas>
+<main>
+  <h1>🎄 Secret Santa <span>Wheel</span> 🎁</h1>
+  <p class="sub" id="sub">Sanders Family</p>
+  <div class="banner">🧸 Plus: <b>everyone gets a gift for Finn!</b> 🎁<br><span>Finn isn't on the wheel — all six of us shop for Finn.</span></div>
+
+  <section class="card" id="pickCard">
+    <h2>👇 Tap your name</h2>
+    <div class="who" id="who"></div>
+    <p class="hint">Who are you? Tap your own name to spin. Only people who haven't spun yet are shown.</p>
+  </section>
+
+  <section class="card hidden" id="spinCard">
+    <h2 id="spinTitle"></h2>
+    <div class="wheelwrap"><div class="pointer"></div><canvas id="wheel" width="760" height="760"></canvas></div>
+    <button class="spin" id="spinBtn">SPIN!</button>
+    <div id="resultBox" class="hidden">
+      <div class="result" id="resultText"></div>
+      <button class="share" id="shareBtn">📲 Share to family chat</button>
+      <p class="hint" id="shareHint">Send this to the group so the next person spins from the new link.</p>
+    </div>
+    <p><a href="#" id="backLink" class="muted">← Not you? Go back</a></p>
+  </section>
+
+  <section class="card hidden" id="doneCard">
+    <h2>🎅 All done! Everyone has a name.</h2>
+    <button class="share" id="finalShareBtn">📲 Share final list</button>
+  </section>
+
+  <section class="card" id="listCard">
+    <h2>Assignments so far</h2>
+    <ul class="list" id="list"></ul>
+    <p class="muted" id="waiting"></p>
+  </section>
+
+  <a class="reset" id="resetLink" href="#">Start over</a>
+</main>
+<div id="toast"></div>
+<script>
+(function(){
+"use strict";
+var DEFAULT_NAMES=["Dad","Mom","Nick","Tori","Webster","Grandpa"];
+var COLORS=["#e63946","#2a9d8f","#f4a261","#457b9d","#8e44ad","#d4a017"];
+
+/* ---------- state in URL hash ---------- */
+function b64e(s){return btoa(unescape(encodeURIComponent(s))).replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/,"");}
+function b64d(s){s=s.replace(/-/g,"+").replace(/_/g,"/");while(s.length%4)s+="=";return decodeURIComponent(escape(atob(s)));}
+function loadState(){
+  var h=location.hash.replace(/^#/,"");
+  if(h){try{var o=JSON.parse(b64d(h));if(o&&Array.isArray(o.n)&&o.a&&typeof o.a==="object")return sanitize(o);}catch(e){}}
+  return {n:DEFAULT_NAMES.slice(),a:{}};
+}
+function sanitize(o){
+  var names=o.n.filter(function(x){return typeof x==="string";});
+  var a={},used={};
+  Object.keys(o.a).forEach(function(k){var v=o.a[k];
+    if(names.indexOf(k)>=0&&names.indexOf(v)>=0&&k!==v&&!used[v]){a[k]=v;used[v]=1;}});
+  return {n:names,a:a};
+}
+function urlFor(st){return location.href.split("#")[0]+"#"+b64e(JSON.stringify(st));}
+function cleanUrl(){return location.href.split("#")[0];}
+
+/* ---------- matching logic ---------- */
+function canComplete(givers,receivers){ // perfect matching with no self, brute force
+  if(givers.length!==receivers.length)return false;
+  if(!givers.length)return true;
+  var g=givers[0],rest=givers.slice(1);
+  for(var i=0;i<receivers.length;i++){
+    if(receivers[i]===g)continue;
+    var r2=receivers.slice(0,i).concat(receivers.slice(i+1));
+    if(canComplete(rest,r2))return true;
+  }
+  return false;
+}
+function remaining(st){
+  var takenR={};Object.keys(st.a).forEach(function(k){takenR[st.a[k]]=1;});
+  return {givers:st.n.filter(function(x){return !(x in st.a);}),
+          receivers:st.n.filter(function(x){return !takenR[x];})};
+}
+function validChoices(st,spinner){
+  var rem=remaining(st);
+  var others=rem.givers.filter(function(x){return x!==spinner;});
+  return rem.receivers.filter(function(r){
+    if(r===spinner)return false;
+    return canComplete(others,rem.receivers.filter(function(x){return x!==r;}));
+  });
+}
+window.__SS={canComplete:canComplete,validChoices:validChoices,remaining:remaining};
+
+/* ---------- UI ---------- */
+var st=loadState(),me=null,choices=[],rotation=0,spinning=false,lastShare="";
+var $=function(id){return document.getElementById(id);};
+function render(){
+  var rem=remaining(st),done=rem.givers.length===0;
+  // who buttons
+  var who=$("who");who.innerHTML="";
+  rem.givers.forEach(function(n){var b=document.createElement("button");b.textContent=n;b.onclick=function(){choose(n);};who.appendChild(b);});
+  $("pickCard").classList.toggle("hidden",done||me!==null);
+  $("spinCard").classList.toggle("hidden",me===null);
+  $("doneCard").classList.toggle("hidden",!(done&&me===null));
+  // list
+  var ul=$("list");ul.innerHTML="";
+  var order=Object.keys(st.a);
+  if(!order.length){var li=document.createElement("li");li.className="muted";li.textContent="No one has spun yet.";ul.appendChild(li);}
+  order.forEach(function(k){var li=document.createElement("li");li.innerHTML="";var b=document.createElement("b");b.textContent=k;li.appendChild(b);li.appendChild(document.createTextNode(" drew "+st.a[k]+" 🎁"));ul.appendChild(li);});
+  $("waiting").textContent=done?"":"Still to spin: "+rem.givers.join(", ");
+  $("sub").textContent=done?"Sanders Family · all "+st.n.length+" names drawn":"Sanders Family · "+order.length+" of "+st.n.length+" have spun";
+}
+function choose(n){
+  me=n;choices=validChoices(st,n);rotation=0;
+  $("spinTitle").textContent=n+", spin to draw your person!";
+  $("resultBox").classList.add("hidden");$("spinBtn").classList.remove("hidden");$("spinBtn").disabled=false;
+  $("backLink").classList.remove("hidden");
+  render();drawWheel();window.scrollTo(0,0);
+}
+function drawWheel(){
+  var c=$("wheel"),ctx=c.getContext("2d"),W=c.width,R=W/2-10,cx=W/2,cy=W/2,n=choices.length;
+  ctx.clearRect(0,0,W,W);
+  ctx.save();ctx.translate(cx,cy);
+  // outer rim
+  ctx.beginPath();ctx.arc(0,0,R+8,0,Math.PI*2);ctx.fillStyle="#ffd65a";ctx.fill();
+  ctx.rotate(rotation);
+  var seg=Math.PI*2/Math.max(n,1);
+  for(var i=0;i<n;i++){
+    // slice i centered at angle i*seg measured from top (-90deg)
+    var a0=-Math.PI/2+i*seg-seg/2,a1=a0+seg;
+    ctx.beginPath();ctx.moveTo(0,0);ctx.arc(0,0,R,a0,a1);ctx.closePath();
+    ctx.fillStyle=n===1?COLORS[0]:COLORS[i%COLORS.length];ctx.fill();
+    ctx.lineWidth=4;ctx.strokeStyle="#fff";ctx.stroke();
+    ctx.save();ctx.rotate(a0+seg/2);
+    ctx.fillStyle="#fff";ctx.font="bold "+(n>5?40:n>4?46:54)+"px -apple-system,Segoe UI,Roboto,sans-serif";
+    ctx.textAlign="right";ctx.textBaseline="middle";ctx.shadowColor="rgba(0,0,0,.45)";ctx.shadowBlur=6;
+    ctx.fillText(choices[i],R-28,0);ctx.restore();
+  }
+  // rim lights
+  for(var j=0;j<24;j++){var ang=j/24*Math.PI*2;ctx.beginPath();ctx.arc(Math.cos(ang)*(R+1),Math.sin(ang)*(R+1),6,0,Math.PI*2);ctx.fillStyle=j%2?"#fff":"#c0392b";ctx.fill();}
+  ctx.restore();
+  // hub
+  ctx.beginPath();ctx.arc(cx,cy,52,0,Math.PI*2);ctx.fillStyle="#fff";ctx.fill();
+  ctx.lineWidth=6;ctx.strokeStyle="#ffd65a";ctx.stroke();
+  ctx.font="52px serif";ctx.textAlign="center";ctx.textBaseline="middle";ctx.fillText("🎅",cx,cy+4);
+}
+function randInt(n){
+  if(window.crypto&&crypto.getRandomValues){var a=new Uint32Array(1);crypto.getRandomValues(a);return a[0]%n;}
+  return Math.floor(Math.random()*n);
+}
+function spin(){
+  if(spinning||!choices.length||!me)return;
+  spinning=true;$("spinBtn").disabled=true;$("backLink").classList.add("hidden");
+  var n=choices.length,seg=Math.PI*2/n,idx=randInt(n);
+  var jitter=(Math.random()-.5)*seg*0.7;            // land inside the slice, not on a line
+  // slice idx center sits at angle idx*seg (clockwise from top) when rotation=0.
+  // pointer at top => need rotation ≡ -(idx*seg+jitter) (mod 2π)
+  var start=rotation%(Math.PI*2);
+  var target=-(idx*seg+jitter);
+  var base=Math.ceil((start-target)/(Math.PI*2));
+  var end=target+(base+5+randInt(2))*Math.PI*2;       // 5-6 full turns forward
+  var dur=4200,t0=null;
+  function ease(t){return 1-Math.pow(1-t,4);}
+  function frame(ts){
+    if(t0===null)t0=ts;
+    var t=Math.min(1,(ts-t0)/dur);
+    rotation=start+(end-start)*ease(t);drawWheel();
+    if(t<1)requestAnimationFrame(frame);else finish(choices[idx]);
+  }
+  requestAnimationFrame(frame);
+}
+function finish(receiver){
+  spinning=false;
+  st.a[me]=receiver;
+  var url=urlFor(st);
+  try{history.replaceState(null,"",url);}catch(e){location.hash=url.split("#")[1];}
+  $("spinBtn").classList.add("hidden");
+  $("resultText").textContent=me+" drew "+receiver+"! 🎁";
+  var rem=remaining(st);
+  if(rem.givers.length){
+    lastShare="Secret Santa: "+me+" drew "+receiver+"! 🎅 Next up ("+rem.givers.join(", ")+"), tap to spin: "+url;
+    $("shareHint").textContent="Send this to the group so the next person spins from the new link.";
+  }else{
+    lastShare=finalText(url);
+    $("shareHint").textContent="That was the last spin. Share the final list with everyone!";
+  }
+  $("resultBox").classList.remove("hidden");
+  confetti();
+  me=me; render();
+  $("pickCard").classList.add("hidden");$("doneCard").classList.add("hidden");
+}
+function finalText(url){
+  var lines=Object.keys(st.a).map(function(k){return k+" → "+st.a[k];});
+  return "Secret Santa is complete! 🎅🎄\n"+lines.join("\n")+"\n+ Everyone gets a gift for Finn! 🧸\n"+url;
+}
+function share(text){
+  if(navigator.share){navigator.share({text:text}).catch(function(e){if(e&&e.name!=="AbortError")copy(text);});}
+  else copy(text);
+}
+function copy(text){
+  function ok(){toast("Copied! Paste it in the family chat.");}
+  if(navigator.clipboard&&window.isSecureContext){navigator.clipboard.writeText(text).then(ok,function(){fallbackCopy(text);ok();});}
+  else{fallbackCopy(text);ok();}
+}
+function fallbackCopy(text){var ta=document.createElement("textarea");ta.value=text;ta.style.position="fixed";ta.style.opacity="0";document.body.appendChild(ta);ta.focus();ta.select();try{document.execCommand("copy");}catch(e){}document.body.removeChild(ta);}
+function toast(m){var t=$("toast");t.textContent=m;t.style.opacity=1;setTimeout(function(){t.style.opacity=0;},2200);}
+
+/* ---------- fx ---------- */
+function confetti(){
+  var c=$("snow"),ctx=c.getContext("2d"),W=c.width=innerWidth,H=c.height=innerHeight,ps=[],cols=["#ffd65a","#e63946","#fff","#34c759","#457b9d"];
+  for(var i=0;i<140;i++)ps.push({x:W/2,y:H/3,vx:(Math.random()-.5)*12,vy:-Math.random()*12-2,r:Math.random()*6+3,c:cols[i%5],a:Math.random()*6});
+  var f=0;(function loop(){ctx.clearRect(0,0,W,H);ps.forEach(function(p){p.x+=p.vx;p.y+=p.vy;p.vy+=.35;p.a+=.2;ctx.fillStyle=p.c;ctx.save();ctx.translate(p.x,p.y);ctx.rotate(p.a);ctx.fillRect(-p.r/2,-p.r/2,p.r,p.r*.6);ctx.restore();});
+    if(++f<150)requestAnimationFrame(loop);else ctx.clearRect(0,0,W,H);})();
+}
+
+/* ---------- wire up ---------- */
+$("spinBtn").onclick=spin;
+$("shareBtn").onclick=function(){share(lastShare);};
+$("finalShareBtn").onclick=function(){share(finalText(urlFor(st)));};
+$("backLink").onclick=function(e){e.preventDefault();if(spinning)return;me=null;render();};
+$("resetLink").onclick=function(e){e.preventDefault();if(confirm("Start Secret Santa over? This clears all picks on this link.")){st={n:DEFAULT_NAMES.slice(),a:{}};me=null;history.replaceState(null,"",cleanUrl());render();}};
+$("resetLink").href=cleanUrl();
+window.addEventListener("hashchange",function(){if(spinning)return;st=loadState();me=null;render();});
+render();
+})();
+</script>
+</body>
+</html>
